@@ -1,0 +1,8 @@
+target/
+nbproject/private/
+.idea/
+*.iml
+.DS_Store
+receipts/
+output/
+tmp/
