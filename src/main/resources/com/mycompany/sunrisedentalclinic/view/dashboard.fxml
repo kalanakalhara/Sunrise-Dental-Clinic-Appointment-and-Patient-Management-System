@@ -278,6 +278,12 @@
                                 <!-- Appointment Form -->
 
                                 <GridPane hgap="8" vgap="8" styleClass="section-card" maxWidth="Infinity">
+                                    <columnConstraints>
+                                        <ColumnConstraints percentWidth="25" hgrow="ALWAYS" minWidth="0"/>
+                                        <ColumnConstraints percentWidth="25" hgrow="ALWAYS" minWidth="0"/>
+                                        <ColumnConstraints percentWidth="25" hgrow="ALWAYS" minWidth="0"/>
+                                        <ColumnConstraints percentWidth="25" hgrow="ALWAYS" minWidth="0"/>
+                                    </columnConstraints>
 
                                     <ComboBox fx:id="aPatientSearch"
                                               promptText="Search registered patient by name, contact or email"
@@ -292,22 +298,26 @@
 
                                     <TextField fx:id="aPatientName"
                                                promptText="Patient Name"
+                                               maxWidth="Infinity"
                                                GridPane.columnIndex="0"
                                                GridPane.rowIndex="1"/>
 
                                     <TextField fx:id="aAddress"
                                                promptText="Address"
+                                               maxWidth="Infinity"
                                                GridPane.columnIndex="2"
                                                GridPane.rowIndex="1"/>
 
                                     <TextField fx:id="aContact"
                                                promptText="Contact"
+                                               maxWidth="Infinity"
                                                GridPane.columnIndex="3"
                                                GridPane.rowIndex="1"/>
 
 
                                     <TextField fx:id="aEmail"
                                                promptText="Email"
+                                               maxWidth="Infinity"
                                                GridPane.columnIndex="0"
                                                GridPane.rowIndex="2"/>
 
@@ -320,32 +330,38 @@
                                     <ComboBox fx:id="aDentist"
                                               promptText="Dentist"
                                               onAction="#showDentistAvailability"
+                                              maxWidth="Infinity"
                                               GridPane.columnIndex="1"
                                               GridPane.rowIndex="2"/>
 
                                     <ComboBox fx:id="aTreatment"
                                               promptText="Treatment"
+                                              maxWidth="Infinity"
                                               GridPane.columnIndex="2"
                                               GridPane.rowIndex="2"/>
 
                                     <DatePicker fx:id="aDate"
+                                                maxWidth="Infinity"
                                                 GridPane.columnIndex="3"
                                                 GridPane.rowIndex="2"/>
 
 
                                     <TextField fx:id="aTime"
                                                promptText="Time HH:mm"
+                                               maxWidth="Infinity"
                                                GridPane.columnIndex="0"
                                                GridPane.rowIndex="3"/>
 
                                     <TextField fx:id="aNotes"
                                                promptText="Notes"
+                                               maxWidth="Infinity"
                                                GridPane.columnIndex="1"
                                                GridPane.rowIndex="3"
                                                GridPane.columnSpan="2"/>
 
                                     <Button text="Register Appointment"
                                             onAction="#registerAppointment"
+                                            maxWidth="Infinity"
                                             GridPane.columnIndex="3"
                                             GridPane.rowIndex="3"/>
 
