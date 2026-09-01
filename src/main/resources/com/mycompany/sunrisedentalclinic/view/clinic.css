@@ -695,3 +695,106 @@
     -fx-font-size: 14px;
     -fx-padding: 10px;
 }
+
+.receipt-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+    -fx-border-color: transparent;
+}
+
+.receipt-scroll > .viewport {
+    -fx-background-color: #f8fafc;
+}
+
+.receipt-paper {
+    -fx-background-color: white;
+    -fx-background-radius: 12px;
+
+    -fx-border-color: #e2e8f0;
+    -fx-border-radius: 12px;
+
+    -fx-padding: 26px;
+
+    -fx-effect: dropshadow(
+            gaussian,
+            rgba(15, 23, 42, 0.08),
+            18,
+            0.10,
+            0,
+            4
+    );
+}
+
+.receipt-clinic-name {
+    -fx-font-size: 21px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #0f172a;
+}
+
+.receipt-subtitle {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2563eb;
+}
+
+.receipt-section-title {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2563eb;
+}
+
+.receipt-label {
+    -fx-font-size: 12px;
+    -fx-text-fill: #64748b;
+}
+
+.receipt-value {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #0f172a;
+}
+
+.receipt-money {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #0f172a;
+}
+
+.receipt-total-box {
+    -fx-background-color: #f8fafc;
+    -fx-background-radius: 9px;
+    -fx-padding: 12px;
+}
+
+.receipt-total-label {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #0f172a;
+}
+
+.receipt-total-value {
+    -fx-font-size: 19px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #16a34a;
+}
+
+.receipt-paid {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #16a34a;
+}
+
+.receipt-small {
+    -fx-font-size: 12px;
+    -fx-text-fill: #64748b;
+}
+
+.receipt-footer {
+    -fx-padding: 8px 0 0 0;
+}
+
+.receipt-footer-title {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #0f172a;
+}

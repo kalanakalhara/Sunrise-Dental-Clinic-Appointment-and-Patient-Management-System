@@ -453,7 +453,248 @@
                                                 <Button fx:id="bPdfButton" text="Open PDF" onAction="#openReceiptPdf" styleClass="secondary" disable="true"/>
                                             </HBox>
                                         </HBox>
-                                        <TextArea fx:id="bReceipt" editable="false" promptText="Your receipt will appear here" styleClass="receipt,receipt-preview" VBox.vgrow="ALWAYS"/>
+                                        <ScrollPane fitToWidth="true"
+                                                    hbarPolicy="NEVER"
+                                                    styleClass="receipt-scroll"
+                                                    VBox.vgrow="ALWAYS">
+
+                                            <VBox fx:id="receiptPreview"
+                                                  spacing="12"
+                                                  maxWidth="520"
+                                                  styleClass="receipt-paper">
+
+                                                <!-- HEADER -->
+                                                <VBox spacing="3" alignment="CENTER">
+                                                    <Label text="SUNRISE DENTAL CLINIC"
+                                                           styleClass="receipt-clinic-name"/>
+
+                                                    <Label text="PAYMENT RECEIPT"
+                                                           styleClass="receipt-subtitle"/>
+
+                                                    <Label text="Dental Clinic, Colombo, Sri Lanka"
+                                                           styleClass="receipt-small"/>
+
+                                                    <Label text="Thank you for choosing Sunrise Dental Clinic"
+                                                           styleClass="receipt-small"/>
+                                                </VBox>
+
+                                                <Separator/>
+
+                                                <!-- BILL DETAILS -->
+                                                <GridPane hgap="18" vgap="8">
+                                                    <columnConstraints>
+                                                        <ColumnConstraints percentWidth="38"/>
+                                                        <ColumnConstraints percentWidth="62"
+                                                                           hgrow="ALWAYS"/>
+                                                    </columnConstraints>
+
+                                                    <Label text="Receipt No"
+                                                           styleClass="receipt-label"
+                                                           GridPane.columnIndex="0"
+                                                           GridPane.rowIndex="0"/>
+
+                                                    <Label fx:id="previewBillNo"
+                                                           text="-"
+                                                           styleClass="receipt-value"
+                                                           GridPane.columnIndex="1"
+                                                           GridPane.rowIndex="0"/>
+
+                                                    <Label text="Payment Date"
+                                                           styleClass="receipt-label"
+                                                           GridPane.columnIndex="0"
+                                                           GridPane.rowIndex="1"/>
+
+                                                    <Label fx:id="previewDate"
+                                                           text="-"
+                                                           styleClass="receipt-value"
+                                                           GridPane.columnIndex="1"
+                                                           GridPane.rowIndex="1"/>
+                                                </GridPane>
+
+                                                <Separator/>
+
+                                                <!-- PATIENT DETAILS -->
+                                                <Label text="PATIENT &amp; APPOINTMENT"
+                                                       styleClass="receipt-section-title"/>
+
+                                                <GridPane hgap="18" vgap="8">
+                                                    <columnConstraints>
+                                                        <ColumnConstraints percentWidth="38"/>
+                                                        <ColumnConstraints percentWidth="62"
+                                                                           hgrow="ALWAYS"/>
+                                                    </columnConstraints>
+
+                                                    <Label text="Patient"
+                                                           styleClass="receipt-label"
+                                                           GridPane.columnIndex="0"
+                                                           GridPane.rowIndex="0"/>
+
+                                                    <Label fx:id="previewPatient"
+                                                           text="-"
+                                                           wrapText="true"
+                                                           styleClass="receipt-value"
+                                                           GridPane.columnIndex="1"
+                                                           GridPane.rowIndex="0"/>
+
+                                                    <Label text="Appointment No"
+                                                           styleClass="receipt-label"
+                                                           GridPane.columnIndex="0"
+                                                           GridPane.rowIndex="1"/>
+
+                                                    <Label fx:id="previewAppointment"
+                                                           text="-"
+                                                           styleClass="receipt-value"
+                                                           GridPane.columnIndex="1"
+                                                           GridPane.rowIndex="1"/>
+
+                                                    <Label text="Dentist"
+                                                           styleClass="receipt-label"
+                                                           GridPane.columnIndex="0"
+                                                           GridPane.rowIndex="2"/>
+
+                                                    <Label fx:id="previewDentist"
+                                                           text="-"
+                                                           wrapText="true"
+                                                           styleClass="receipt-value"
+                                                           GridPane.columnIndex="1"
+                                                           GridPane.rowIndex="2"/>
+
+                                                    <Label text="Treatment"
+                                                           styleClass="receipt-label"
+                                                           GridPane.columnIndex="0"
+                                                           GridPane.rowIndex="3"/>
+
+                                                    <Label fx:id="previewTreatment"
+                                                           text="-"
+                                                           wrapText="true"
+                                                           styleClass="receipt-value"
+                                                           GridPane.columnIndex="1"
+                                                           GridPane.rowIndex="3"/>
+
+                                                    <Label text="Appointment Date"
+                                                           styleClass="receipt-label"
+                                                           GridPane.columnIndex="0"
+                                                           GridPane.rowIndex="4"/>
+
+                                                    <Label fx:id="previewAppointmentDate"
+                                                           text="-"
+                                                           styleClass="receipt-value"
+                                                           GridPane.columnIndex="1"
+                                                           GridPane.rowIndex="4"/>
+
+                                                    <Label text="Appointment Time"
+                                                           styleClass="receipt-label"
+                                                           GridPane.columnIndex="0"
+                                                           GridPane.rowIndex="5"/>
+
+                                                    <Label fx:id="previewAppointmentTime"
+                                                           text="-"
+                                                           styleClass="receipt-value"
+                                                           GridPane.columnIndex="1"
+                                                           GridPane.rowIndex="5"/>
+                                                </GridPane>
+
+                                                <Separator/>
+
+                                                <!-- PAYMENT DETAILS -->
+                                                <Label text="PAYMENT DETAILS"
+                                                       styleClass="receipt-section-title"/>
+
+                                                <GridPane hgap="18" vgap="10">
+                                                    <columnConstraints>
+                                                        <ColumnConstraints percentWidth="60"/>
+                                                        <ColumnConstraints percentWidth="40"
+                                                                           halignment="RIGHT"/>
+                                                    </columnConstraints>
+
+                                                    <Label text="Consultation fee"
+                                                           styleClass="receipt-label"
+                                                           GridPane.columnIndex="0"
+                                                           GridPane.rowIndex="0"/>
+
+                                                    <Label fx:id="previewConsultation"
+                                                           text="Rs. 0.00"
+                                                           styleClass="receipt-money"
+                                                           GridPane.columnIndex="1"
+                                                           GridPane.rowIndex="0"/>
+
+                                                    <Label text="Treatment charge"
+                                                           styleClass="receipt-label"
+                                                           GridPane.columnIndex="0"
+                                                           GridPane.rowIndex="1"/>
+
+                                                    <Label fx:id="previewTreatmentCharge"
+                                                           text="Rs. 0.00"
+                                                           styleClass="receipt-money"
+                                                           GridPane.columnIndex="1"
+                                                           GridPane.rowIndex="1"/>
+                                                </GridPane>
+
+                                                <Separator/>
+
+                                                <!-- TOTAL -->
+                                                <HBox spacing="15"
+                                                      alignment="CENTER_RIGHT"
+                                                      styleClass="receipt-total-box">
+
+                                                    <Label text="TOTAL PAID"
+                                                           styleClass="receipt-total-label"/>
+
+                                                    <Pane HBox.hgrow="ALWAYS"/>
+
+                                                    <Label fx:id="previewTotal"
+                                                           text="Rs. 0.00"
+                                                           styleClass="receipt-total-value"/>
+                                                </HBox>
+
+                                                <!-- PAYMENT METHOD -->
+                                                <GridPane hgap="18" vgap="8">
+                                                    <columnConstraints>
+                                                        <ColumnConstraints percentWidth="38"/>
+                                                        <ColumnConstraints percentWidth="62"/>
+                                                    </columnConstraints>
+
+                                                    <Label text="Payment Method"
+                                                           styleClass="receipt-label"
+                                                           GridPane.columnIndex="0"
+                                                           GridPane.rowIndex="0"/>
+
+                                                    <Label fx:id="previewPaymentMethod"
+                                                           text="-"
+                                                           styleClass="receipt-value"
+                                                           GridPane.columnIndex="1"
+                                                           GridPane.rowIndex="0"/>
+
+                                                    <Label text="Status"
+                                                           styleClass="receipt-label"
+                                                           GridPane.columnIndex="0"
+                                                           GridPane.rowIndex="1"/>
+
+                                                    <Label text="PAID"
+                                                           styleClass="receipt-paid"
+                                                           GridPane.columnIndex="1"
+                                                           GridPane.rowIndex="1"/>
+                                                </GridPane>
+
+                                                <Separator/>
+
+                                                <!-- FOOTER -->
+                                                <VBox spacing="3"
+                                                      alignment="CENTER"
+                                                      styleClass="receipt-footer">
+
+                                                    <Label text="Thank you for your payment."
+                                                           styleClass="receipt-small"/>
+
+                                                    <Label text="SUNRISE DENTAL CLINIC"
+                                                           styleClass="receipt-footer-title"/>
+
+                                                    <Label text="We care for your smile."
+                                                           styleClass="receipt-small"/>
+                                                </VBox>
+
+                                            </VBox>
+                                        </ScrollPane>
                                     </VBox>
                                 </HBox>
                             </VBox>

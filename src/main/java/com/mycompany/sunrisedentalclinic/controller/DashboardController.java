@@ -9,6 +9,7 @@ import com.mycompany.sunrisedentalclinic.model.Patient;
 import com.mycompany.sunrisedentalclinic.model.SupportTicket;
 import com.mycompany.sunrisedentalclinic.model.Treatment;
 import com.mycompany.sunrisedentalclinic.model.User;
+import com.mycompany.sunrisedentalclinic.service.AppointmentService;
 import com.mycompany.sunrisedentalclinic.service.BillingService;
 
 import javafx.beans.property.SimpleStringProperty;
@@ -228,7 +229,43 @@ public class DashboardController {
     private TextField bConsultation;
 
     @FXML
-    private TextArea bReceipt;
+    private VBox receiptPreview;
+
+    @FXML
+    private Label previewBillNo;
+
+    @FXML
+    private Label previewDate;
+
+    @FXML
+    private Label previewPatient;
+
+    @FXML
+    private Label previewAppointment;
+
+    @FXML
+    private Label previewDentist;
+
+    @FXML
+    private Label previewTreatment;
+
+    @FXML
+    private Label previewAppointmentDate;
+
+    @FXML
+    private Label previewAppointmentTime;
+
+    @FXML
+    private Label previewConsultation;
+
+    @FXML
+    private Label previewTreatmentCharge;
+
+    @FXML
+    private Label previewTotal;
+
+    @FXML
+    private Label previewPaymentMethod;
 
     @FXML
     private ComboBox<String> bPaymentMethod;
@@ -326,6 +363,8 @@ public class DashboardController {
     private final UserDAO users = new UserDAO();
 
     private final ClinicDAO dao = new ClinicDAO();
+
+    private final AppointmentService appointmentService = new AppointmentService();
 
     private final BillingService billing = new BillingService();
 
@@ -1410,9 +1449,7 @@ public class DashboardController {
     }
 
     private void validateDentistHours(LocalTime start, LocalTime end) {
-        if (!end.isAfter(start)) {
-            throw new IllegalArgumentException("End time must be later than start time.");
-        }
+        appointmentService.validateDentistHours(start, end);
     }
 
     @FXML
@@ -1456,20 +1493,7 @@ public class DashboardController {
                 throw new IllegalArgumentException("Please select the patient's gender.");
             }
 
-            LocalTime time;
-
-            try {
-
-                time = LocalTime.parse(
-                        aTime.getText().trim()
-                );
-
-            } catch (Exception e) {
-
-                throw new IllegalArgumentException(
-                        "Time must use HH:mm format. Example: 14:30"
-                );
-            }
+            LocalTime time = appointmentService.parseTime(aTime.getText());
 
             boolean available
                     = dao.slotAvailable(
@@ -1478,16 +1502,8 @@ public class DashboardController {
                             time
                     );
 
-            if (!available) {
-
-                throw new IllegalArgumentException(
-                        "The selected dentist is not available at this date and time."
-                );
-            }
-            if (!dao.withinDentistHours(aDentist.getValue().id(), time)) {
-                throw new IllegalArgumentException("Appointment time must be within the dentist's available hours: "
-                        + aDentist.getValue().availability());
-            }
+            appointmentService.validateSlot(
+                    aDentist.getValue(), aDate.getValue(), time, available);
 
             java.util.Optional<Patient> existingPatient
                     = dao.findPatientByContactOrEmail(
@@ -1617,19 +1633,12 @@ public class DashboardController {
                             || status.getValue() == null) {
                         throw new IllegalArgumentException("Please complete all appointment fields.");
                     }
-                    int requestedNumber = Integer.parseInt(number.getText().trim());
-                    if (requestedNumber < 1) {
-                        throw new IllegalArgumentException("Appointment number must be 1 or greater.");
-                    }
-                    parsedTime[0] = LocalTime.parse(time.getText().trim());
-                    if (!dao.withinDentistHours(dentist.getValue().id(), parsedTime[0])) {
-                        throw new IllegalArgumentException("Appointment time must be within the dentist's available hours: "
-                                + dentist.getValue().availability());
-                    }
-                    if (!dao.slotAvailableForUpdate(selected.id(), dentist.getValue().id(),
-                            date.getValue(), parsedTime[0])) {
-                        throw new IllegalArgumentException("The selected dentist is not available at this date and time.");
-                    }
+                    appointmentService.validateAppointmentNumber(number.getText());
+                    parsedTime[0] = appointmentService.parseTime(time.getText());
+                    boolean available = dao.slotAvailableForUpdate(selected.id(), dentist.getValue().id(),
+                            date.getValue(), parsedTime[0]);
+                    appointmentService.validateSlot(
+                            dentist.getValue(), date.getValue(), parsedTime[0], available);
                 } catch (Exception e) {
                     event.consume();
                     error(e instanceof IllegalArgumentException
@@ -1971,9 +1980,68 @@ public class DashboardController {
             int billId = dao.saveBill(appointment.id(), consultation, treatmentCharge,
                     total, paymentMethod, cardLast4);
 
-            String receipt = buildReceiptText(billId, appointment, consultation,
-                    treatmentCharge, total, paymentMethod, cardLast4);
-            bReceipt.setText(receipt);
+            previewBillNo.setText(
+                    "BILL-" + String.format("%04d", billId)
+            );
+
+            previewDate.setText(
+                    LocalDateTime.now().format(
+                            DateTimeFormatter.ofPattern(
+                                    "dd MMM yyyy, HH:mm"
+                            )
+                    )
+            );
+
+            previewPatient.setText(
+                    appointment.patientName()
+            );
+
+            previewAppointment.setText(
+                    appointment.appointmentNo()
+            );
+
+            previewDentist.setText(
+                    appointment.dentistName()
+            );
+
+            previewTreatment.setText(
+                    appointment.treatmentName()
+            );
+
+            previewAppointmentDate.setText(
+                    String.valueOf(appointment.date())
+            );
+
+            previewAppointmentTime.setText(
+                    String.valueOf(appointment.time())
+            );
+
+            previewConsultation.setText(
+                    money(consultation)
+            );
+
+            previewTreatmentCharge.setText(
+                    money(treatmentCharge)
+            );
+
+            previewTotal.setText(
+                    money(total)
+            );
+
+            if ("CARD".equals(paymentMethod)) {
+
+                previewPaymentMethod.setText(
+                        cardLast4 == null || cardLast4.isBlank()
+                                ? "Card"
+                                : "Card •••• " + cardLast4
+                );
+
+            } else {
+
+                previewPaymentMethod.setText(
+                        "Cash"
+                );
+            }
             lastReceiptPdf = createReceiptPdf(billId, appointment, consultation,
                     treatmentCharge, total, paymentMethod, cardLast4);
             bPrintButton.setDisable(false);
@@ -2184,17 +2252,15 @@ public class DashboardController {
 
             requireReceptionAccess();
 
-            if (bReceipt
-                    .getText()
-                    .isBlank()) {
+            if (previewBillNo.getText() == null
+                    || "-".equals(previewBillNo.getText())) {
 
                 throw new IllegalArgumentException(
-                        "Generate a receipt first."
+                        "Complete a payment first."
                 );
             }
 
-            PrinterJob job
-                    = PrinterJob.createPrinterJob();
+            PrinterJob job = PrinterJob.createPrinterJob();
 
             if (job == null) {
 
@@ -2203,28 +2269,25 @@ public class DashboardController {
                 );
             }
 
-            boolean print
-                    = job.showPrintDialog(
-                            bReceipt
-                                    .getScene()
-                                    .getWindow()
-                    );
+            boolean print = job.showPrintDialog(
+                    receiptPreview
+                            .getScene()
+                            .getWindow()
+            );
 
             if (print) {
 
-                Text receipt
-                        = new Text(
-                                bReceipt.getText()
-                        );
-
-                boolean success
-                        = job.printPage(
-                                receipt
-                        );
+                boolean success = job.printPage(
+                        receiptPreview
+                );
 
                 if (success) {
 
                     job.endJob();
+
+                    information(
+                            "Receipt sent to printer."
+                    );
                 }
             }
 
