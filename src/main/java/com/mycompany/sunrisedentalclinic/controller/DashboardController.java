@@ -143,6 +143,8 @@ public class DashboardController {
 
     @FXML
     private TextField uDentistSpecialization;
+    @FXML
+    private TextField uDentistPhone;
 
     // =========================================================
     // PATIENTS
@@ -170,6 +172,11 @@ public class DashboardController {
     // =========================================================
     @FXML
     private TableView<Appointment> apptTable;
+    @FXML private GridPane appointmentForm;
+    @FXML private Button deleteAppointmentButton;
+    @FXML private VBox treatmentForm;
+    @FXML private Button editTreatmentButton, deleteTreatmentButton;
+    @FXML private Label treatmentActionsHint;
 
     @FXML
     private ComboBox<String> aGender;
@@ -389,8 +396,11 @@ public class DashboardController {
             boolean dentistRole = "DENTIST".equals(role);
             uDentistSpecialization.setVisible(dentistRole);
             uDentistSpecialization.setManaged(dentistRole);
+            uDentistPhone.setVisible(dentistRole);
+            uDentistPhone.setManaged(dentistRole);
         });
         uDentistSpecialization.setVisible(false); uDentistSpecialization.setManaged(false);
+        uDentistPhone.setVisible(false); uDentistPhone.setManaged(false);
 
         pGender.setItems(FXCollections.observableArrayList("Male", "Female", "Other"));
         aGender.setItems(FXCollections.observableArrayList("Male", "Female", "Other"));
@@ -568,10 +578,19 @@ public class DashboardController {
 
         // TREATMENT TABLE
         table(dentistTable,
-                new String[]{"Name", "Specialization", "Phone", "Email", "Start", "End"},
+                new String[]{"Name", "Specialization", "Phone", "Email", "Start", "End", "Availability"},
                 dentist -> new String[]{dentist.fullName(), dentist.specialization(), dentist.phone(),
-                    dentist.email(), dentist.startTime().toString(), dentist.endTime().toString()});
+                    dentist.email(), dentist.startTime().toString(), dentist.endTime().toString(),
+                    dentist.available() ? "Available" : "Unavailable"});
         addNumberColumn(dentistTable);
+        dentistTable.setRowFactory(table -> new TableRow<Dentist>() {
+            @Override
+            protected void updateItem(Dentist dentist, boolean empty) {
+                super.updateItem(dentist, empty);
+                pseudoClassStateChanged(javafx.css.PseudoClass.getPseudoClass("unavailable"),
+                        !empty && dentist != null && !dentist.available());
+            }
+        });
 
         // TREATMENT TABLE
         table(
@@ -593,7 +612,7 @@ public class DashboardController {
             TableRow<Treatment> row = new TableRow<>();
             row.setOnMouseClicked(event -> {
                 if (!row.isEmpty() && event.getButton() == MouseButton.PRIMARY
-                        && event.getClickCount() == 2) {
+                        && event.getClickCount() == 2 && canManageTreatments()) {
                     editTreatment();
                 }
             });
@@ -702,6 +721,12 @@ public class DashboardController {
          */
         tabs.getTabs().clear();
 
+        boolean canRegister = "ADMIN".equals(currentUser.role())
+                || "RECEPTIONIST".equals(currentUser.role());
+        appointmentForm.setVisible(canRegister);
+        appointmentForm.setManaged(canRegister);
+        deleteAppointmentButton.setVisible(canRegister);
+        deleteAppointmentButton.setManaged(canRegister);
         switch (currentUser.role()) {
 
             // =================================================
@@ -748,7 +773,6 @@ public class DashboardController {
                 tabs.getTabs().addAll(
                         tabOverview,
                         tabAppointments,
-                        tabDentists,
                         tabTreatments,
                         tabHelp,
                         tabTickets
@@ -775,11 +799,17 @@ public class DashboardController {
         setNavVisible(navPatients, admin || receptionist);
         setNavVisible(navAppointments, admin || receptionist || dentist);
         setNavVisible(navBilling, admin || receptionist);
-        setNavVisible(navDentists, admin || receptionist || dentist);
+        setNavVisible(navDentists, admin || receptionist);
         setNavVisible(navTreatments, admin || receptionist || dentist);
         setNavVisible(navHelp, admin || receptionist || dentist);
         setNavVisible(navTickets, admin || receptionist || dentist);
         setNavVisible(navReports, admin);
+        treatmentForm.setVisible(canManageTreatments());
+        treatmentForm.setManaged(canManageTreatments());
+        setNavVisible(editTreatmentButton, canManageTreatments());
+        setNavVisible(deleteTreatmentButton, admin);
+        treatmentActionsHint.setText(admin ? "Select a row to edit or delete a treatment."
+                : dentist ? "Select a row to edit a treatment." : "View available treatments and prices.");
         ticketEditButton.setVisible(admin);
         ticketEditButton.setManaged(admin);
         ticketDeleteButton.setVisible(admin);
@@ -950,7 +980,10 @@ public class DashboardController {
                 );
             }
             if ("DENTIST".equals(uRole.getValue())) {
-                required(uDentistSpecialization);
+                required(uDentistSpecialization, uDentistPhone);
+                if (uDentistPhone.getText().trim().length() > 30) {
+                    throw new IllegalArgumentException("Dentist phone number must be 30 characters or fewer.");
+                }
             }
 
             users.create(
@@ -962,7 +995,7 @@ public class DashboardController {
             );
             if ("DENTIST".equals(uRole.getValue())) {
                 dao.saveDentistForUser(null, null, uName.getText().trim(), uEmail.getText().trim(),
-                        uDentistSpecialization.getText().trim());
+                        uDentistSpecialization.getText().trim(), uDentistPhone.getText().trim());
             }
 
             clear(
@@ -970,7 +1003,8 @@ public class DashboardController {
                     uPassword,
                     uName,
                     uEmail,
-                    uDentistSpecialization
+                    uDentistSpecialization,
+                    uDentistPhone
             );
 
             refreshAll();
@@ -1011,6 +1045,21 @@ public class DashboardController {
                         "You cannot delete your own account."
                 );
             }
+
+            Alert confirmation = new Alert(Alert.AlertType.CONFIRMATION);
+            confirmation.setTitle("Delete user");
+            confirmation.setHeaderText("Delete " + selected.username() + "?");
+            confirmation.setContentText("This permanently deletes the user account and all support tickets created by this user. "
+                    + ("DENTIST".equals(selected.role())
+                            ? "Their dentist profile, appointments, appointment treatment entries and bills will also be deleted. "
+                            : "")
+                    + "Patient records and the treatment catalog will be kept. This cannot be undone.");
+            confirmation.getDialogPane().getStyleClass().add("user-edit-dialog");
+            confirmation.getDialogPane().getStylesheets().add(
+                    getClass().getResource("/com/mycompany/sunrisedentalclinic/view/clinic.css").toExternalForm());
+            ButtonType delete = new ButtonType("Delete user", ButtonBar.ButtonData.OK_DONE);
+            confirmation.getButtonTypes().setAll(delete, ButtonType.CANCEL);
+            if (confirmation.showAndWait().orElse(ButtonType.CANCEL) != delete) return;
 
             users.delete(
                     selected.userId()
@@ -1389,7 +1438,7 @@ public class DashboardController {
         Dentist dentist = aDentist.getValue();
         aDentistAvailability.setText(dentist == null
                 ? "Select a dentist to see available hours"
-                : "Available today: " + dentist.availability()
+                : "Availability: " + dentist.availability()
                     + "  •  Choose an appointment time within this range");
     }
 
@@ -1423,13 +1472,18 @@ public class DashboardController {
             if (selected == null) throw new IllegalArgumentException("Please select a dentist to edit.");
             TextField start = new TextField(selected.startTime().toString());
             TextField end = new TextField(selected.endTime().toString());
+            ComboBox<String> availability = new ComboBox<>(FXCollections.observableArrayList("Available", "Unavailable"));
+            availability.setValue(selected.available() ? "Available" : "Unavailable");
+            availability.setMaxWidth(Double.MAX_VALUE);
             GridPane form = new GridPane();
             form.setHgap(10); form.setVgap(8); form.setPadding(new Insets(8));
             form.addRow(0, new Label("Start time (HH:mm)"), start);
             form.addRow(1, new Label("End time (HH:mm)"), end);
+            form.addRow(2, new Label("Availability"), availability);
             Dialog<ButtonType> dialog = new Dialog<>();
             dialog.setTitle("Edit dentist"); dialog.setHeaderText(selected.fullName());
             dialog.getDialogPane().setContent(form);
+            dialog.getDialogPane().getStyleClass().add("user-edit-dialog");
             dialog.getDialogPane().getStylesheets().add(
                     getClass().getResource("/com/mycompany/sunrisedentalclinic/view/clinic.css").toExternalForm());
             ButtonType save = new ButtonType("Save changes", ButtonBar.ButtonData.OK_DONE);
@@ -1438,7 +1492,8 @@ public class DashboardController {
                 LocalTime startTime = LocalTime.parse(start.getText().trim());
                 LocalTime endTime = LocalTime.parse(end.getText().trim());
                 validateDentistHours(startTime, endTime);
-                dao.updateDentistAvailability(selected.id(), startTime, endTime);
+                dao.updateDentistAvailability(selected.id(), startTime, endTime,
+                        "Available".equals(availability.getValue()));
                 refreshAll();
                 information("Dentist updated successfully.");
             }
@@ -1562,6 +1617,10 @@ public class DashboardController {
     @FXML
     private void editAppointment() {
         try {
+            if (currentUser != null && "DENTIST".equals(currentUser.role())) {
+                editDentistAppointment();
+                return;
+            }
             requireReceptionAccess();
             Appointment selected = apptTable.getSelectionModel().getSelectedItem();
             if (selected == null) {
@@ -1660,10 +1719,71 @@ public class DashboardController {
         }
     }
 
+    private void editDentistAppointment() throws Exception {
+        Appointment selected = apptTable.getSelectionModel().getSelectedItem();
+        if (selected == null) throw new IllegalArgumentException("Please select an appointment to edit.");
+        int dentistId = appointmentService.dentistIdFor(currentUser, dao.dentists());
+        if (selected.dentistId() != dentistId) throw new SecurityException("You can only edit your own appointments.");
+        ComboBox<String> status = new ComboBox<>(FXCollections.observableArrayList("BOOKED", "COMPLETED", "CANCELLED"));
+        status.setValue(selected.status());
+        status.setMaxWidth(Double.MAX_VALUE);
+        TextArea notes = new TextArea(selected.notes());
+        notes.setPrefRowCount(3);
+        notes.setWrapText(true);
+        List<Treatment> existing = dao.appointmentTreatments(selected.id(), dentistId);
+        ListView<Treatment> currentTreatments = new ListView<>(FXCollections.observableArrayList(existing));
+        currentTreatments.setPrefHeight(110);
+        currentTreatments.setPlaceholder(new Label("No treatments added yet"));
+        var existingIds = existing.stream().map(Treatment::id).collect(java.util.stream.Collectors.toSet());
+        ListView<Treatment> additions = new ListView<>(FXCollections.observableArrayList(
+                dao.treatments().stream().filter(t -> !existingIds.contains(t.id())).toList()));
+        additions.setPlaceholder(new Label("All available treatments have already been added"));
+        additions.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+        additions.setPrefHeight(160);
+        additions.setDisable("COMPLETED".equals(selected.paymentStatus()));
+        Label treatmentHint = new Label(additions.isDisabled()
+                ? "Treatments have been paid. Additional treatments cannot be added."
+                : "Hold Cmd/Ctrl and click to select multiple treatments.");
+        treatmentHint.getStyleClass().add("muted");
+        treatmentHint.setWrapText(true);
+        VBox form = new VBox(8, new Label("Already added treatments"), currentTreatments,
+                new Label("Status"), status, new Label("Notes"), notes,
+                new Label("Add another treatment"), treatmentHint, additions);
+        form.setPadding(new Insets(8, 0, 4, 0));
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Edit my appointment");
+        dialog.setHeaderText(selected.appointmentNo() + " — " + selected.patientName());
+        dialog.getDialogPane().setContent(form);
+        dialog.getDialogPane().setPrefWidth(560);
+        dialog.getDialogPane().getStyleClass().add("user-edit-dialog");
+        dialog.getDialogPane().getStylesheets().add(
+                getClass().getResource("/com/mycompany/sunrisedentalclinic/view/clinic.css").toExternalForm());
+        ButtonType save = new ButtonType("Save changes", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(save, ButtonType.CANCEL);
+        dialog.getDialogPane().lookupButton(save).addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
+            try {
+                dao.updateDentistAppointment(currentUser, selected.id(), status.getValue(), notes.getText().trim(),
+                        additions.getSelectionModel().getSelectedItems().stream().map(Treatment::id).toList());
+            } catch (Exception e) {
+                event.consume();
+                error(e);
+            }
+        });
+        if (dialog.showAndWait().orElse(ButtonType.CANCEL) == save) {
+            refreshAll();
+            information("Appointment updated successfully.");
+        }
+    }
+
     @FXML
     private void refreshAppointments() {
 
         try {
+
+            if ("DENTIST".equals(currentUser.role())) {
+                apptTable.getItems().clear();
+                overviewTable.getItems().clear();
+            }
 
             String search = "";
 
@@ -1673,7 +1793,8 @@ public class DashboardController {
             }
 
             List<Appointment> appointments
-                    = dao.appointments(search);
+                    = dao.appointments(search, "DENTIST".equals(currentUser.role())
+                            ? appointmentService.dentistIdFor(currentUser, dao.dentists()) : null);
             appointments.sort((left, right) -> {
                 int numericOrder = Long.compare(appointmentOrder(left.appointmentNo()),
                         appointmentOrder(right.appointmentNo()));
@@ -1975,7 +2096,7 @@ public class DashboardController {
                 cardLast4 = digits.length() <= 4 ? digits : digits.substring(digits.length() - 4);
             }
 
-            BigDecimal treatmentCharge = dao.treatmentCost(appointment.treatmentId());
+            BigDecimal treatmentCharge = dao.appointmentTreatmentCost(appointment.id());
             BigDecimal total = billing.calculateTotal(consultation, treatmentCharge);
             int billId = dao.saveBill(appointment.id(), consultation, treatmentCharge,
                     total, paymentMethod, cardLast4);
@@ -2079,7 +2200,7 @@ public class DashboardController {
         try {
             Appointment appointment = bAppointment.getValue();
             BigDecimal treatment = appointment == null
-                    ? BigDecimal.ZERO : dao.treatmentCost(appointment.treatmentId());
+                    ? BigDecimal.ZERO : dao.appointmentTreatmentCost(appointment.id());
             BigDecimal consultation;
             try {
                 consultation = new BigDecimal(bConsultation.getText().trim());
@@ -2305,10 +2426,7 @@ public class DashboardController {
 
         try {
 
-            /*
-             * Only Admin can modify treatment prices.
-             */
-            requireAdmin();
+            requireTreatmentAccess();
 
             required(
                     tName,
@@ -2363,7 +2481,7 @@ public class DashboardController {
     @FXML
     private void editTreatment() {
         try {
-            requireAdmin();
+            requireTreatmentAccess();
             Treatment selected = treatmentTable.getSelectionModel().getSelectedItem();
             if (selected == null) {
                 throw new IllegalArgumentException("Please select a treatment to edit.");
@@ -3036,6 +3154,17 @@ public class DashboardController {
     // =========================================================
     // ROLE SECURITY
     // =========================================================
+    private boolean canManageTreatments() {
+        return currentUser != null && currentUser.active()
+                && ("ADMIN".equals(currentUser.role()) || "DENTIST".equals(currentUser.role()));
+    }
+
+    private void requireTreatmentAccess() {
+        if (!canManageTreatments()) {
+            throw new SecurityException("Only administrators and dentists can add or edit treatments.");
+        }
+    }
+
     private void requireAdmin() {
 
         if (currentUser == null

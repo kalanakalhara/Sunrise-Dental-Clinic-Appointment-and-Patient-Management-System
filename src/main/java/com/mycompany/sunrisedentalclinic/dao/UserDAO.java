@@ -62,8 +62,84 @@ public class UserDAO {
     }
 
     public void delete(int id) throws SQLException {
-        try (Connection c = DBConnection.getConnection(); PreparedStatement p = c.prepareStatement("DELETE FROM users WHERE user_id=?")) {
-            p.setInt(1, id);
+        try (Connection c = DBConnection.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                User selected;
+                // Lock the account so new tickets cannot be linked during deletion.
+                try (PreparedStatement user = c.prepareStatement(
+                        "SELECT user_id,username,full_name,email,role,status FROM users WHERE user_id=? FOR UPDATE")) {
+                    user.setInt(1, id);
+                    try (ResultSet result = user.executeQuery()) {
+                        if (!result.next()) throw new SQLException("User was not found.");
+                        selected = map(result);
+                    }
+                }
+                if ("DENTIST".equals(selected.role())) {
+                    deleteDentistRecords(c, selected);
+                }
+                try (PreparedStatement tickets = c.prepareStatement(
+                        "DELETE FROM support_tickets WHERE created_by=?");
+                        PreparedStatement user = c.prepareStatement("DELETE FROM users WHERE user_id=?")) {
+                    tickets.setInt(1, id);
+                    tickets.executeUpdate();
+                    user.setInt(1, id);
+                    if (user.executeUpdate() != 1) throw new SQLException("User was not found.");
+                }
+                c.commit();
+            } catch (SQLException | RuntimeException e) {
+                c.rollback();
+                throw e;
+            }
+        }
+    }
+
+    private void deleteDentistRecords(Connection c, User user) throws SQLException {
+        // Legacy dentist profiles have no user_id: only delete an unambiguous match.
+        boolean hasEmail = user.email() != null && !user.email().isBlank();
+        String match = hasEmail ? "LOWER(email)=LOWER(?)" : "LOWER(full_name)=LOWER(?)";
+        String value = hasEmail ? user.email() : user.fullName();
+        Integer dentistId = null;
+        try (PreparedStatement p = c.prepareStatement(
+                "SELECT dentist_id FROM dentists WHERE " + match + " FOR UPDATE")) {
+            p.setString(1, value);
+            try (ResultSet r = p.executeQuery()) {
+                if (r.next()) dentistId = r.getInt(1);
+                if (r.next()) throw new SQLException("Multiple dentist profiles match this account. Correct the profiles before deleting.");
+            }
+        }
+        if (dentistId == null) return;
+        try (PreparedStatement p = c.prepareStatement(
+                "SELECT user_id FROM users WHERE user_id<>? AND role='DENTIST' AND " + match + " FOR UPDATE")) {
+            p.setInt(1, user.userId());
+            p.setString(2, value);
+            try (ResultSet r = p.executeQuery()) {
+                if (r.next()) throw new SQLException("This dentist profile is shared by another account. Correct the accounts before deleting.");
+            }
+        }
+        // Lock appointments before removing their dependent rows.
+        try (PreparedStatement p = c.prepareStatement(
+                "SELECT appointment_id FROM appointments WHERE dentist_id=? FOR UPDATE")) {
+            p.setInt(1, dentistId);
+            try (ResultSet r = p.executeQuery()) { while (r.next()) { /* acquire all row locks */ } }
+        }
+        boolean hasAdditionalTreatments;
+        try (ResultSet tables = c.getMetaData().getTables(c.getCatalog(), null, "appointment_treatments", new String[]{"TABLE"})) {
+            hasAdditionalTreatments = tables.next();
+        }
+        if (hasAdditionalTreatments) {
+            deleteByDentist(c, "DELETE FROM appointment_treatments WHERE appointment_id IN "
+                    + "(SELECT appointment_id FROM appointments WHERE dentist_id=?)", dentistId);
+        }
+        deleteByDentist(c, "DELETE FROM bills WHERE appointment_id IN "
+                + "(SELECT appointment_id FROM appointments WHERE dentist_id=?)", dentistId);
+        deleteByDentist(c, "DELETE FROM appointments WHERE dentist_id=?", dentistId);
+        deleteByDentist(c, "DELETE FROM dentists WHERE dentist_id=?", dentistId);
+    }
+
+    private void deleteByDentist(Connection c, String sql, int dentistId) throws SQLException {
+        try (PreparedStatement p = c.prepareStatement(sql)) {
+            p.setInt(1, dentistId);
             p.executeUpdate();
         }
     }

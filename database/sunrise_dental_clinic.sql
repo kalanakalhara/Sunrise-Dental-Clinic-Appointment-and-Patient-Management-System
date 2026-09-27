@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS dentists (
  phone VARCHAR(30),
  email VARCHAR(120),
  start_time TIME NOT NULL DEFAULT '09:00:00',
- end_time TIME NOT NULL DEFAULT '17:00:00'
+ end_time TIME NOT NULL DEFAULT '17:00:00',
+ available BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 CREATE TABLE IF NOT EXISTS patients (
@@ -54,6 +55,14 @@ CREATE TABLE IF NOT EXISTS appointments (
  FOREIGN KEY (dentist_id) REFERENCES dentists(dentist_id),
  FOREIGN KEY (treatment_id) REFERENCES treatments(treatment_id),
  UNIQUE KEY uq_dentist_slot (dentist_id, appointment_date, appointment_time)
+);
+
+CREATE TABLE IF NOT EXISTS appointment_treatments (
+ appointment_id INT NOT NULL,
+ treatment_id INT NOT NULL,
+ PRIMARY KEY (appointment_id, treatment_id),
+ FOREIGN KEY (appointment_id) REFERENCES appointments(appointment_id) ON DELETE CASCADE,
+ FOREIGN KEY (treatment_id) REFERENCES treatments(treatment_id)
 );
 
 CREATE TABLE IF NOT EXISTS bills (

@@ -798,3 +798,9 @@
     -fx-font-weight: bold;
     -fx-text-fill: #0f172a;
 }
+
+/* Unavailable dentists remain readable when their row is selected. */
+.table-row-cell:unavailable { -fx-background-color: #fff1f2; }
+.table-row-cell:unavailable .table-cell { -fx-text-fill: #9f1239; }
+.table-row-cell:unavailable:selected { -fx-background-color: #fecdd3; }
+.table-row-cell:unavailable:selected .table-cell { -fx-text-fill: #881337; }

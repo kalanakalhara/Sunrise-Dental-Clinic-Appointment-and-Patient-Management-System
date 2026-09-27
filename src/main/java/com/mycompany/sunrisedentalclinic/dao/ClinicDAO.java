@@ -27,7 +27,7 @@ public class ClinicDAO {
             while (r.next()) {
                 out.add(new Dentist(r.getInt("dentist_id"), r.getString("full_name"), r.getString("specialization"),
                         r.getString("phone"), r.getString("email"), r.getTime("start_time").toLocalTime(),
-                        r.getTime("end_time").toLocalTime()));
+                        r.getTime("end_time").toLocalTime(), r.getBoolean("available")));
             }
             }
         }
@@ -57,6 +57,11 @@ public class ClinicDAO {
 
     public void saveDentistForUser(String oldName, String oldEmail, String name, String email,
             String specialization) throws SQLException {
+        saveDentistForUser(oldName, oldEmail, name, email, specialization, null);
+    }
+
+    public void saveDentistForUser(String oldName, String oldEmail, String name, String email,
+            String specialization, String phone) throws SQLException {
         try (Connection c = DBConnection.getConnection()) {
             ensureDentistAvailabilityColumns(c);
             Integer dentistId = null;
@@ -72,12 +77,12 @@ public class ClinicDAO {
                 }
             }
             if (dentistId == null) {
-                addDentist(name, specialization, "", email, LocalTime.of(9, 0), LocalTime.of(17, 0));
+                addDentist(name, specialization, phone == null ? "" : phone, email, LocalTime.of(9, 0), LocalTime.of(17, 0));
             } else {
                 try (PreparedStatement p = c.prepareStatement(
-                        "UPDATE dentists SET full_name=?,email=?,specialization=? WHERE dentist_id=?")) {
+                        "UPDATE dentists SET full_name=?,email=?,specialization=?,phone=COALESCE(?,phone) WHERE dentist_id=?")) {
                     p.setString(1, name); p.setString(2, email); p.setString(3, specialization);
-                    p.setInt(4, dentistId); p.executeUpdate();
+                    p.setString(4, phone); p.setInt(5, dentistId); p.executeUpdate();
                 }
             }
         }
@@ -95,7 +100,7 @@ public class ClinicDAO {
     public boolean withinDentistHours(int dentistId, LocalTime time) throws SQLException {
         try (Connection c = DBConnection.getConnection()) {
             ensureDentistAvailabilityColumns(c);
-            try (PreparedStatement p = c.prepareStatement("SELECT start_time,end_time FROM dentists WHERE dentist_id=?")) {
+            try (PreparedStatement p = c.prepareStatement("SELECT start_time,end_time FROM dentists WHERE dentist_id=? AND available=1")) {
                 p.setInt(1, dentistId);
                 try (ResultSet r = p.executeQuery()) {
                     if (!r.next()) return false;
@@ -107,7 +112,23 @@ public class ClinicDAO {
         }
     }
 
+    public void updateDentistAvailability(int dentistId, LocalTime startTime, LocalTime endTime,
+            boolean available) throws SQLException {
+        try (Connection c = DBConnection.getConnection()) {
+            ensureDentistAvailabilityColumns(c);
+            try (PreparedStatement p = c.prepareStatement(
+                    "UPDATE dentists SET start_time=?,end_time=?,available=? WHERE dentist_id=?")) {
+                p.setTime(1, Time.valueOf(startTime));
+                p.setTime(2, Time.valueOf(endTime));
+                p.setBoolean(3, available);
+                p.setInt(4, dentistId);
+                if (p.executeUpdate() == 0) throw new SQLException("Dentist was not found.");
+            }
+        }
+    }
+
     private void ensureDentistAvailabilityColumns(Connection connection) throws SQLException {
+        addColumnIfMissing(connection, "dentists", "available", "BOOLEAN NOT NULL DEFAULT TRUE");
         addColumnIfMissing(connection, "dentists", "start_time", "TIME NOT NULL DEFAULT '09:00:00'");
         addColumnIfMissing(connection, "dentists", "end_time", "TIME NOT NULL DEFAULT '17:00:00'");
     }
@@ -143,9 +164,12 @@ public class ClinicDAO {
     }
 
     public int treatmentAppointmentCount(int treatmentId) throws SQLException {
+        ensureAppointmentTreatments();
         try (Connection c = DBConnection.getConnection();
-                PreparedStatement p = c.prepareStatement("SELECT COUNT(*) FROM appointments WHERE treatment_id=?")) {
+                PreparedStatement p = c.prepareStatement("SELECT COUNT(*) FROM appointments WHERE treatment_id=? OR appointment_id IN "
+                        + "(SELECT appointment_id FROM appointment_treatments WHERE treatment_id=?)")) {
             p.setInt(1, treatmentId);
+            p.setInt(2, treatmentId);
             try (ResultSet r = p.executeQuery()) {
                 r.next();
                 return r.getInt(1);
@@ -403,13 +427,20 @@ public class ClinicDAO {
     }
 
     public List<Appointment> appointments(String search) throws SQLException {
-        String sql = "SELECT a.appointment_id,a.appointment_no,a.patient_id,p.full_name patient_name,a.dentist_id,d.full_name dentist_name,a.treatment_id,t.treatment_name,a.appointment_date,a.appointment_time,a.status,a.notes,CASE WHEN b.payment_status='PAID' THEN 'COMPLETED' ELSE 'PENDING' END payment_state FROM appointments a JOIN patients p ON p.patient_id=a.patient_id JOIN dentists d ON d.dentist_id=a.dentist_id JOIN treatments t ON t.treatment_id=a.treatment_id LEFT JOIN bills b ON b.appointment_id=a.appointment_id WHERE (?='' OR a.appointment_no LIKE CONCAT('%',?,'%') OR LOWER(p.full_name) LIKE CONCAT('%',LOWER(?),'%')) ORDER BY a.appointment_no ASC";
+        return appointments(search, null);
+    }
+
+    public List<Appointment> appointments(String search, Integer dentistId) throws SQLException {
+        ensureAppointmentTreatments();
+        String sql = "SELECT a.appointment_id,a.appointment_no,a.patient_id,p.full_name patient_name,a.dentist_id,d.full_name dentist_name,a.treatment_id,CONCAT_WS(', ',t.treatment_name,(SELECT GROUP_CONCAT(tx.treatment_name ORDER BY tx.treatment_name SEPARATOR ', ') FROM appointment_treatments ax JOIN treatments tx ON tx.treatment_id=ax.treatment_id WHERE ax.appointment_id=a.appointment_id AND ax.treatment_id<>a.treatment_id)) treatment_name,a.appointment_date,a.appointment_time,a.status,a.notes,CASE WHEN b.payment_status='PAID' THEN 'COMPLETED' ELSE 'PENDING' END payment_state FROM appointments a JOIN patients p ON p.patient_id=a.patient_id JOIN dentists d ON d.dentist_id=a.dentist_id JOIN treatments t ON t.treatment_id=a.treatment_id LEFT JOIN bills b ON b.appointment_id=a.appointment_id WHERE (?='' OR a.appointment_no LIKE CONCAT('%',?,'%') OR LOWER(p.full_name) LIKE CONCAT('%',LOWER(?),'%')) AND (? IS NULL OR a.dentist_id=?) ORDER BY a.appointment_no ASC";
         List<Appointment> out = new ArrayList<>();
         String s = search == null ? "" : search.trim();
         try (Connection c = DBConnection.getConnection(); PreparedStatement p = c.prepareStatement(sql)) {
             p.setString(1, s);
             p.setString(2, s);
             p.setString(3, s);
+            p.setObject(4, dentistId, Types.INTEGER);
+            p.setObject(5, dentistId, Types.INTEGER);
             try (ResultSet r = p.executeQuery()) {
                 while (r.next()) {
                     out.add(new Appointment(r.getInt("appointment_id"), r.getString("appointment_no"), r.getInt("patient_id"), r.getString("patient_name"), r.getInt("dentist_id"), r.getString("dentist_name"), r.getInt("treatment_id"), r.getString("treatment_name"), r.getDate("appointment_date").toLocalDate(), r.getTime("appointment_time").toLocalTime(), r.getString("status"), r.getString("notes"), r.getString("payment_state")));
@@ -420,8 +451,9 @@ public class ClinicDAO {
     }
 
     public List<Appointment> appointmentsForPatient(int patientId) throws SQLException {
+        ensureAppointmentTreatments();
         String sql = "SELECT a.appointment_id,a.appointment_no,a.patient_id,p.full_name patient_name,"
-                + "a.dentist_id,d.full_name dentist_name,a.treatment_id,t.treatment_name,"
+                + "a.dentist_id,d.full_name dentist_name,a.treatment_id,CONCAT_WS(', ',t.treatment_name,(SELECT GROUP_CONCAT(tx.treatment_name ORDER BY tx.treatment_name SEPARATOR ', ') FROM appointment_treatments ax JOIN treatments tx ON tx.treatment_id=ax.treatment_id WHERE ax.appointment_id=a.appointment_id AND ax.treatment_id<>a.treatment_id)) treatment_name,"
                 + "a.appointment_date,a.appointment_time,a.status,a.notes,"
                 + "CASE WHEN b.payment_status='PAID' THEN 'COMPLETED' ELSE 'PENDING' END payment_state "
                 + "FROM appointments a "
@@ -449,8 +481,9 @@ public class ClinicDAO {
     }
 
     public List<Appointment> unpaidAppointments() throws SQLException {
+        ensureAppointmentTreatments();
         String sql = "SELECT a.appointment_id,a.appointment_no,a.patient_id,p.full_name patient_name,"
-                + "a.dentist_id,d.full_name dentist_name,a.treatment_id,t.treatment_name,"
+                + "a.dentist_id,d.full_name dentist_name,a.treatment_id,CONCAT_WS(', ',t.treatment_name,(SELECT GROUP_CONCAT(tx.treatment_name ORDER BY tx.treatment_name SEPARATOR ', ') FROM appointment_treatments ax JOIN treatments tx ON tx.treatment_id=ax.treatment_id WHERE ax.appointment_id=a.appointment_id AND ax.treatment_id<>a.treatment_id)) treatment_name,"
                 + "a.appointment_date,a.appointment_time,a.status,a.notes,'PENDING' payment_state "
                 + "FROM appointments a "
                 + "JOIN patients p ON p.patient_id=a.patient_id "
@@ -489,6 +522,101 @@ public class ClinicDAO {
             } finally {
                 c.setAutoCommit(true);
             }
+        }
+    }
+
+    private void ensureAppointmentTreatments() throws SQLException {
+        try (Connection c = DBConnection.getConnection(); Statement statement = c.createStatement()) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS appointment_treatments ("
+                    + "appointment_id INT NOT NULL,treatment_id INT NOT NULL,"
+                    + "PRIMARY KEY(appointment_id,treatment_id),"
+                    + "FOREIGN KEY(appointment_id) REFERENCES appointments(appointment_id) ON DELETE CASCADE,"
+                    + "FOREIGN KEY(treatment_id) REFERENCES treatments(treatment_id))");
+        }
+    }
+
+    public void updateDentistAppointment(User user, int appointmentId, String status, String notes,
+            List<Integer> additionalTreatments) throws SQLException {
+        int dentistId = new com.mycompany.sunrisedentalclinic.service.AppointmentService()
+                .dentistIdFor(user, dentists());
+        if (!List.of("BOOKED", "COMPLETED", "CANCELLED").contains(status)) {
+            throw new IllegalArgumentException("Invalid appointment status.");
+        }
+        if (notes != null && notes.length() > 255) {
+            throw new IllegalArgumentException("Notes must be 255 characters or fewer.");
+        }
+        ensureAppointmentTreatments();
+        try (Connection c = DBConnection.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                int primaryTreatment;
+                try (PreparedStatement p = c.prepareStatement(
+                        "SELECT treatment_id FROM appointments WHERE appointment_id=? AND dentist_id=? FOR UPDATE")) {
+                    p.setInt(1, appointmentId); p.setInt(2, dentistId);
+                    try (ResultSet r = p.executeQuery()) {
+                        if (!r.next()) throw new SecurityException("You can only edit your own appointments.");
+                        primaryTreatment = r.getInt(1);
+                    }
+                }
+                if (!additionalTreatments.isEmpty()) {
+                    try (PreparedStatement p = c.prepareStatement(
+                            "SELECT bill_id FROM bills WHERE appointment_id=? AND payment_status='PAID'")) {
+                        p.setInt(1, appointmentId);
+                        try (ResultSet r = p.executeQuery()) {
+                            if (r.next()) throw new IllegalArgumentException("Treatments cannot be added after payment.");
+                        }
+                    }
+                }
+                try (PreparedStatement p = c.prepareStatement(
+                        "INSERT INTO appointment_treatments(appointment_id,treatment_id) VALUES(?,?) "
+                        + "ON DUPLICATE KEY UPDATE treatment_id=VALUES(treatment_id)")) {
+                    for (Integer treatmentId : additionalTreatments) {
+                        if (treatmentId == primaryTreatment) continue;
+                        p.setInt(1, appointmentId); p.setInt(2, treatmentId); p.executeUpdate();
+                    }
+                }
+                try (PreparedStatement p = c.prepareStatement(
+                        "UPDATE appointments SET status=?,notes=? WHERE appointment_id=? AND dentist_id=?")) {
+                    p.setString(1, status); p.setString(2, notes);
+                    p.setInt(3, appointmentId); p.setInt(4, dentistId); p.executeUpdate();
+                }
+                c.commit();
+            } catch (SQLException | RuntimeException e) {
+                c.rollback();
+                throw e;
+            }
+        }
+    }
+
+    public List<Treatment> appointmentTreatments(int appointmentId, int dentistId) throws SQLException {
+        ensureAppointmentTreatments();
+        String sql = "SELECT t.* FROM treatments t WHERE EXISTS ("
+                + "SELECT 1 FROM appointments a WHERE a.appointment_id=? AND a.dentist_id=? "
+                + "AND (a.treatment_id=t.treatment_id OR EXISTS ("
+                + "SELECT 1 FROM appointment_treatments ax WHERE ax.appointment_id=a.appointment_id "
+                + "AND ax.treatment_id=t.treatment_id))) ORDER BY t.treatment_name";
+        List<Treatment> result = new ArrayList<>();
+        try (Connection c = DBConnection.getConnection(); PreparedStatement p = c.prepareStatement(sql)) {
+            p.setInt(1, appointmentId);
+            p.setInt(2, dentistId);
+            try (ResultSet r = p.executeQuery()) {
+                while (r.next()) {
+                    result.add(new Treatment(r.getInt("treatment_id"), r.getString("treatment_name"),
+                            r.getString("description"), r.getBigDecimal("cost")));
+                }
+            }
+        }
+        return result;
+    }
+
+    public BigDecimal appointmentTreatmentCost(int appointmentId) throws SQLException {
+        ensureAppointmentTreatments();
+        String sql = "SELECT COALESCE(SUM(cost),0) FROM treatments WHERE treatment_id IN ("
+                + "SELECT treatment_id FROM appointments WHERE appointment_id=? UNION "
+                + "SELECT treatment_id FROM appointment_treatments WHERE appointment_id=?)";
+        try (Connection c = DBConnection.getConnection(); PreparedStatement p = c.prepareStatement(sql)) {
+            p.setInt(1, appointmentId); p.setInt(2, appointmentId);
+            try (ResultSet r = p.executeQuery()) { r.next(); return r.getBigDecimal(1); }
         }
     }
 
