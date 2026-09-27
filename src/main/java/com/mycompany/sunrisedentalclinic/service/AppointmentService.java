@@ -2,6 +2,7 @@ package com.mycompany.sunrisedentalclinic.service;
 
 import com.mycompany.sunrisedentalclinic.dao.ClinicDAO;
 import com.mycompany.sunrisedentalclinic.model.Dentist;
+import com.mycompany.sunrisedentalclinic.model.User;
 
 import java.sql.SQLException;
 import java.time.LocalDate;
@@ -18,6 +19,19 @@ public class AppointmentService {
 
     public AppointmentService(ClinicDAO clinicDAO) {
         this.clinicDAO = clinicDAO;
+    }
+
+    public int dentistIdFor(User user, java.util.List<Dentist> dentists) {
+        if (user == null || !user.active() || !"DENTIST".equals(user.role())) {
+            throw new SecurityException("Active dentist login required.");
+        }
+        var matches = dentists.stream().filter(d -> user.email() != null && !user.email().isBlank()
+                ? user.email().equalsIgnoreCase(d.email())
+                : user.fullName().equalsIgnoreCase(d.fullName())).toList();
+        if (matches.size() != 1) {
+            throw new SecurityException("Your dentist profile could not be uniquely identified. Please contact an administrator.");
+        }
+        return matches.get(0).id();
     }
 
     public void validateAppointment(
@@ -95,6 +109,9 @@ public class AppointmentService {
     public void validateSlot(Dentist dentist, LocalDate date, LocalTime time, boolean slotAvailable) {
         if (dentist == null) {
             throw new IllegalArgumentException("Please select a dentist.");
+        }
+        if (!dentist.available()) {
+            throw new IllegalArgumentException("The selected dentist is unavailable.");
         }
         if (date == null) {
             throw new IllegalArgumentException("Please select a date.");

@@ -164,7 +164,8 @@
                                         <TextField fx:id="uName" promptText="Full name *" GridPane.columnIndex="2" GridPane.rowIndex="0" maxWidth="Infinity"/>
                                         <TextField fx:id="uEmail" promptText="Email address" GridPane.columnIndex="3" GridPane.rowIndex="0" maxWidth="Infinity"/>
                                         <ComboBox fx:id="uRole" promptText="Select role *" GridPane.columnIndex="0" GridPane.rowIndex="1" maxWidth="Infinity"/>
-                                        <TextField fx:id="uDentistSpecialization" promptText="Dentist specialization *" GridPane.columnIndex="1" GridPane.rowIndex="1" GridPane.columnSpan="2" maxWidth="Infinity"/>
+                                        <TextField fx:id="uDentistSpecialization" promptText="Dentist specialization *" GridPane.columnIndex="1" GridPane.rowIndex="1" maxWidth="Infinity"/>
+                                        <TextField fx:id="uDentistPhone" promptText="Dentist phone number *" GridPane.columnIndex="2" GridPane.rowIndex="1" maxWidth="Infinity"/>
                                         <Button text="Create user" onAction="#addUser" styleClass="primary-large" GridPane.columnIndex="3" GridPane.rowIndex="1" maxWidth="Infinity"/>
                                     </GridPane>
                                 </VBox>
@@ -270,14 +271,14 @@
 
                                     <Pane HBox.hgrow="ALWAYS"/>
                                     <Button text="Edit appointment" onAction="#editAppointment" styleClass="secondary"/>
-                                    <Button text="Delete" onAction="#deleteAppointment" styleClass="danger"/>
+                                    <Button fx:id="deleteAppointmentButton" text="Delete" onAction="#deleteAppointment" styleClass="danger"/>
 
                                 </HBox>
 
 
                                 <!-- Appointment Form -->
 
-                                <GridPane hgap="8" vgap="8" styleClass="section-card" maxWidth="Infinity">
+                                <GridPane fx:id="appointmentForm" hgap="8" vgap="8" styleClass="section-card" maxWidth="Infinity">
                                     <columnConstraints>
                                         <ColumnConstraints percentWidth="25" hgrow="ALWAYS" minWidth="0"/>
                                         <ColumnConstraints percentWidth="25" hgrow="ALWAYS" minWidth="0"/>
@@ -734,7 +735,7 @@
                                             <Label text="Availability is used when scheduling appointments." styleClass="muted,small-copy"/>
                                         </VBox>
                                         <Pane HBox.hgrow="ALWAYS"/>
-                                        <Button text="Edit working hours" onAction="#editDentist" styleClass="secondary"/>
+                                        <Button text="Edit availability" onAction="#editDentist" styleClass="secondary"/>
                                     </HBox>
                                     <TableView fx:id="dentistTable" VBox.vgrow="ALWAYS"/>
                                 </VBox>
@@ -756,7 +757,7 @@
                                     <Label text="Manage the clinic's services and treatment prices." styleClass="muted"/>
                                 </VBox>
 
-                                <VBox spacing="12" styleClass="section-card,user-create-card">
+                                <VBox fx:id="treatmentForm" spacing="12" styleClass="section-card,user-create-card">
                                     <Label text="Add a new treatment" styleClass="card-title"/>
                                     <GridPane hgap="10" vgap="10">
                                         <columnConstraints>
@@ -775,12 +776,12 @@
                                     <HBox alignment="CENTER_LEFT">
                                         <VBox spacing="2">
                                             <Label text="All treatments" styleClass="card-title"/>
-                                            <Label text="Select a row to edit or delete a treatment." styleClass="muted,small-copy"/>
+                                            <Label fx:id="treatmentActionsHint" text="Select a row to edit or delete a treatment." styleClass="muted,small-copy"/>
                                         </VBox>
                                         <Pane HBox.hgrow="ALWAYS"/>
                                         <HBox spacing="8">
-                                            <Button text="Edit treatment" onAction="#editTreatment" styleClass="secondary"/>
-                                            <Button text="Delete" onAction="#deleteTreatment" styleClass="danger"/>
+                                            <Button fx:id="editTreatmentButton" text="Edit treatment" onAction="#editTreatment" styleClass="secondary"/>
+                                            <Button fx:id="deleteTreatmentButton" text="Delete" onAction="#deleteTreatment" styleClass="danger"/>
                                         </HBox>
                                     </HBox>
                                     <TableView fx:id="treatmentTable" minWidth="0" maxWidth="Infinity" VBox.vgrow="ALWAYS"/>

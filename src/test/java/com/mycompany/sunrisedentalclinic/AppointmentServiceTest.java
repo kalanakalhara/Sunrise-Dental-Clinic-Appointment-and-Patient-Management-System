@@ -14,6 +14,25 @@ import static org.junit.jupiter.api.Assertions.*;
 class AppointmentServiceTest {
 
     @Test
+    void unavailableDentistCannotBeBookedEvenWithAnOpenSlot() {
+        var dentist = new com.mycompany.sunrisedentalclinic.model.Dentist(1, "Dentist", "General", "", "",
+                LocalTime.of(9, 0), LocalTime.of(17, 0), false);
+        var service = new AppointmentService();
+        var error = assertThrows(IllegalArgumentException.class, () -> service.validateSlot(
+                dentist, LocalDate.now().plusDays(1), LocalTime.of(10, 0), true));
+        assertEquals("The selected dentist is unavailable.", error.getMessage());
+        assertEquals("Unavailable", dentist.availability());
+    }
+
+    @Test
+    void availableDentistCanBeBookedWithinWorkingHours() {
+        var dentist = new com.mycompany.sunrisedentalclinic.model.Dentist(1, "Dentist", "General", "", "",
+                LocalTime.of(9, 0), LocalTime.of(17, 0), true);
+        assertDoesNotThrow(() -> new AppointmentService().validateSlot(
+                dentist, LocalDate.now().plusDays(1), LocalTime.of(10, 0), true));
+    }
+
+    @Test
     void availableAppointmentShouldBeAccepted()
             throws SQLException {
 
